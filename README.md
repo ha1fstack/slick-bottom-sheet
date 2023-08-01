@@ -8,12 +8,12 @@ Slick Bottom Sheet is a bottom sheet component with buttery smooth animation and
 
 ## Install
 
-Since this package is built with Framer Motion, you need to install it as well.
+This package requires framer-motion as a peer dependency.
 
 ```bash
-npm install framer-motion slick-bottom-sheet
-yarn add framer-motion slick-bottom-sheet
-pnpm install framer-motion slick-bottom-sheet
+npm install slick-bottom-sheet
+yarn add slick-bottom-sheet
+pnpm install slick-bottom-sheet
 ```
 
 ## Example
