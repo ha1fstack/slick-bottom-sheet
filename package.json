@@ -1,0 +1,92 @@
+{
+  "name": "slick-bottom-sheet",
+  "description": "Flexible bottom sheet component for React, built with framer motion.",
+  "keywords": [
+    "animation",
+    "bottom-drawer",
+    "bottom-sheet",
+    "bottomsheet",
+    "dialog",
+    "drag-drop",
+    "draggableview",
+    "drawer",
+    "gesture-control",
+    "modal",
+    "motion",
+    "overlay",
+    "popup",
+    "react",
+    "react-spring",
+    "react-use-gesture",
+    "sheet",
+    "typescript"
+  ],
+  "license": "MIT",
+  "version": "0.0.0",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plrs9816/slick-bottom-sheet.git"
+  },
+  "homepage": "https://github.com/plrs9816/slick-bottom-sheet",
+  "author": "plrs9816",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "pnpm build:swc && pnpm types",
+    "build:swc": "swc src -d dist --copy-files",
+    "dev": "pnpm build:swc -w",
+    "types": "tsc --emitDeclarationOnly",
+    "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --fix",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.6.1",
+  "dependencies": {
+    "body-scroll-lock": "4.0.0-beta.0"
+  },
+  "devDependencies": {
+    "framer-motion": "^10.15.0",
+    "@swc/cli": "^0.1.62",
+    "@swc/core": "^1.3.72",
+    "@types/body-scroll-lock": "^3.1.0",
+    "@types/node": "18.15.7",
+    "@types/react": "18.2.18",
+    "@typescript-eslint/eslint-plugin": "^6.2.1",
+    "@typescript-eslint/parser": "^6.2.1",
+    "eslint": "8.46.0",
+    "eslint-config-next": "13.4.12",
+    "eslint-config-prettier": "^8.9.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "eslint-plugin-react": "^7.33.1",
+    "eslint-plugin-vitest": "^0.2.8",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "typescript": "5.1.6"
+  },
+  "peerDependencies": {
+    "react": ">=17.0.0",
+    "framer-motion": ">=10.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  }
+}

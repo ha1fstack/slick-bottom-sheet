@@ -1,0 +1,10 @@
+node_modules
+.next
+public
+dist
+.vscode
+
+# Ignore dependency locks
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
