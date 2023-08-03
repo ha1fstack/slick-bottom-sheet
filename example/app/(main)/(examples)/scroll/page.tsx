@@ -3,7 +3,7 @@
 import React from "react";
 import { SlickBottomSheet, SlickBottomSheetControl } from "slick-bottom-sheet";
 
-export default function Home() {
+export default function Page() {
   const [isOpen, setIsOpen] = React.useState(false);
   const ref = React.useRef<SlickBottomSheetControl>(null);
 
@@ -14,25 +14,15 @@ export default function Home() {
   return (
     <>
       <div className="grid place-items-center h-full">
-        <div className="flex gap-4">
-          <button
-            className="px-4 py-2 bg-zinc-100 rounded-md"
-            onClick={() => {
-              console.log("open");
-              setIsOpen(true);
-            }}
-          >
-            Open
-          </button>
-          <button
-            className="px-4 py-2 bg-zinc-100 rounded-md"
-            onClick={() => {
-              ref.current?.snapTo("close");
-            }}
-          >
-            Close
-          </button>
-        </div>
+        <button
+          className="px-4 py-2 bg-zinc-100 rounded-md"
+          onClick={() => {
+            console.log("open");
+            setIsOpen(true);
+          }}
+        >
+          Open
+        </button>
       </div>
       <SlickBottomSheet
         isOpen={isOpen}
@@ -41,7 +31,8 @@ export default function Home() {
         }}
         ref={ref}
         onSnap={console.log}
-        backdropBlock={false}
+        snaps={[0.9]}
+        autoSnapAsMax={false}
         className="bg-white rounded-t-2xl overflow-hidden shadow-xl z-10 isolate border"
         header={
           <div className="flex justify-center py-2">
@@ -58,13 +49,30 @@ export default function Home() {
             </button>
           </div>
         }
-        backdropClassName="bg-black bg-opacity-10"
+        backdropClassName="backdrop-blur-sm bg-black bg-opacity-10"
       >
         <div className="p-4">
-          <div className="h-48 grid place-items-center font-bold">
+          <input
+            type="text"
+            className="w-full px-4 py-2 bg-white border border-zinc-300 rounded-md"
+            placeholder="input"
+          />
+          <div className="py-8 grid place-items-center font-bold">
             <div className="text-center">
-              <p>The backdrop is not blocking pointer events.</p>
+              <p>Content larger than container is automatically handled.</p>
+              <p>
+                Provides smooth interaction between modal drag and content
+                scroll in any device.
+              </p>
             </div>
+          </div>
+          <div className="border rounded bg-zinc-50 px-4 py-3">
+            {Array.from({ length: 40 }).map((_, i) => (
+              <React.Fragment key={i}>
+                tall content
+                <br />
+              </React.Fragment>
+            ))}
           </div>
         </div>
       </SlickBottomSheet>

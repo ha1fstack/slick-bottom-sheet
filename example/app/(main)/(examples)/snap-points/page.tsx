@@ -3,7 +3,7 @@
 import React from "react";
 import { SlickBottomSheet, SlickBottomSheetControl } from "slick-bottom-sheet";
 
-export default function Home() {
+export default function Page() {
   const [isOpen, setIsOpen] = React.useState(false);
   const ref = React.useRef<SlickBottomSheetControl>(null);
 
@@ -30,6 +30,8 @@ export default function Home() {
           setIsOpen(false);
         }}
         ref={ref}
+        snaps={[250, 0.5, -100]}
+        autoSnapAsMax={false}
         onSnap={console.log}
         className="bg-white rounded-t-2xl overflow-hidden shadow-xl z-10 isolate border"
         header={
@@ -50,14 +52,38 @@ export default function Home() {
         backdropClassName="backdrop-blur-sm bg-black bg-opacity-10"
       >
         <div className="p-4">
-          <div className="h-48 grid place-items-center font-bold">
-            <div className="text-center">
-              <p className="text-3xl mb-4">Hello There!</p>
-              <p>
-                This is a sheet demo with default breakpoint [&quot;auto&quot;].
-              </p>
-              <p>It also has sticky header and footer.</p>
-              <p>You can drag the sheet or backdrop to control the sheet.</p>
+          <div className="h-48 grid place-items-center font-bold border rounded">
+            <div className="flex gap-4">
+              <button
+                onClick={() => ref.current?.snapTo("close")}
+                className="w-full bg-zinc-200 py-2 px-4 font-medium rounded"
+              >
+                &quot;close&quot;
+              </button>
+              <button
+                onClick={() => ref.current?.snapTo(0)}
+                className="w-full bg-zinc-200 py-2 px-4 font-medium rounded"
+              >
+                250
+              </button>
+              <button
+                onClick={() => ref.current?.snapTo("auto")}
+                className="w-full bg-zinc-200 py-2 px-4 font-medium rounded"
+              >
+                &quot;auto&quot;
+              </button>
+              <button
+                onClick={() => ref.current?.snapTo(1)}
+                className="w-full bg-zinc-200 py-2 px-4 font-medium rounded"
+              >
+                0.5
+              </button>
+              <button
+                onClick={() => ref.current?.snapTo(2)}
+                className="w-full bg-zinc-200 py-2 px-4 font-medium rounded"
+              >
+                -100
+              </button>
             </div>
           </div>
         </div>

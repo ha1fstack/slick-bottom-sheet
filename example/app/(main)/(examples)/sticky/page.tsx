@@ -3,7 +3,7 @@
 import React from "react";
 import { SlickBottomSheet, SlickBottomSheetControl } from "slick-bottom-sheet";
 
-export default function Home() {
+export default function Page() {
   const [isOpen, setIsOpen] = React.useState(false);
   const ref = React.useRef<SlickBottomSheetControl>(null);
 
@@ -31,48 +31,37 @@ export default function Home() {
         }}
         ref={ref}
         onSnap={console.log}
-        snaps={[0.9]}
-        autoSnapAsMax={false}
         className="bg-white rounded-t-2xl overflow-hidden shadow-xl z-10 isolate border"
         header={
-          <div className="flex justify-center py-2">
+          <div className="flex flex-col items-center py-2 border-b">
             <div className="w-10 h-1 rounded-full bg-zinc-400" />
+            <div className="mt-2 font-semibold text-lg">Sticky Header</div>
           </div>
         }
         footer={
-          <div className="p-4">
+          <div className="p-4 flex flex-col gap-2 border-t">
+            <button
+              onClick={() => ref.current?.snapTo("close")}
+              className="w-full bg-zinc-200 py-2 font-medium rounded"
+            >
+              Cancel
+            </button>
             <button
               onClick={() => ref.current?.snapTo("close")}
               className="w-full bg-indigo-600 py-2 font-medium text-white rounded"
             >
-              Dismiss
+              Done
             </button>
           </div>
         }
         backdropClassName="backdrop-blur-sm bg-black bg-opacity-10"
       >
         <div className="p-4">
-          <input
-            type="text"
-            className="w-full px-4 py-2 bg-white border border-zinc-300 rounded-md"
-            placeholder="input"
-          />
-          <div className="py-8 grid place-items-center font-bold">
+          <div className="h-48 grid place-items-center font-bold">
             <div className="text-center">
-              <p>Content larger than container is automatically handled.</p>
-              <p>
-                Provides smooth interaction between modal drag and content
-                scroll in any device.
-              </p>
+              <p>You can customize sticky header and footer.</p>
+              <p>Sizes are automatically handled.</p>
             </div>
-          </div>
-          <div className="border rounded bg-zinc-50 px-4 py-3">
-            {Array.from({ length: 40 }).map((_, i) => (
-              <React.Fragment key={i}>
-                tall content
-                <br />
-              </React.Fragment>
-            ))}
           </div>
         </div>
       </SlickBottomSheet>
