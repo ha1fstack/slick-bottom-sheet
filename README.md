@@ -16,6 +16,12 @@ yarn add slick-bottom-sheet
 pnpm install slick-bottom-sheet
 ```
 
+## Demo
+
+[slick-bottom-sheet.vercel.app](https://slick-bottom-sheet.vercel.app/)
+
+or clone the repo and run the `./example` Next.JS app locally.
+
 ## Example
 
 ```tsx
@@ -83,10 +89,6 @@ export default function Home() {
   );
 }
 ```
-
-## Demo
-
-Clone the repo and run the example Next.JS app.
 
 ## To Do
 
