@@ -4,7 +4,7 @@ const getRect = (element: HTMLElement) => {
   return element.getBoundingClientRect();
 };
 
-export function useRect<T extends HTMLElement>(
+export function useRect(
   ref: React.RefObject<HTMLElement>,
   params?: {
     onResize?: (rect: DOMRect) => void;
@@ -28,7 +28,7 @@ export function useRect<T extends HTMLElement>(
       mount.current = true;
       if (onMount) onMount(rect);
     }
-  }, [onMount, onResize]);
+  }, [onMount, onResize, ref]);
 
   React.useLayoutEffect(() => {
     const element = ref.current;

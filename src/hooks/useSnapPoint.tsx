@@ -198,6 +198,8 @@ export function useSnapPoint<T extends HTMLElement>({
     containerRect,
     contentRef,
     defaultSnap,
+    footerRef,
+    headerRef,
     onChange,
     onMount,
     snaps,

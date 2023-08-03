@@ -14,6 +14,7 @@ import {
   useVelocity,
 } from "framer-motion";
 import { Snap, SnapPoint, useSnapPoint } from "./hooks/useSnapPoint";
+import { _DragControls } from "./types";
 
 export interface SnapConfig {
   /**
@@ -361,7 +362,9 @@ const InnerSlickBottomSheet = React.forwardRef<
         return;
       }
 
-      const elementControlIteratorResult = dragControls.componentControls
+      const elementControlIteratorResult = (
+        dragControls as unknown as _DragControls
+      ).componentControls
         .values()
         .next();
       if (elementControlIteratorResult.done) return;
@@ -401,7 +404,7 @@ const InnerSlickBottomSheet = React.forwardRef<
         ? snapPoints.minSnapExceptClose.value
         : 0,
     ],
-    [0, 0.999],
+    [0, 1],
   );
 
   const backdropTapRef = React.useRef<null | Point>(null);
