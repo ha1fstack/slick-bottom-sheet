@@ -56,7 +56,6 @@ export default function Page() {
               <p>
                 This is a sheet demo with default breakpoint [&quot;auto&quot;].
               </p>
-              <p>It also has sticky header and footer.</p>
               <p>You can drag the sheet or backdrop to control the sheet.</p>
             </div>
           </div>
