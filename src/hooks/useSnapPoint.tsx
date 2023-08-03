@@ -1,6 +1,7 @@
 import React from "react";
 import { SnapConfig } from "src";
 import { getClosestIndexAndValue } from "../utils";
+import { useRect } from "./useRect";
 
 export interface SnapPoint {
   value: number;
@@ -12,17 +13,20 @@ export type Snap = {
   getNearestByCoord: (coord: number) => SnapPoint;
   getNearestByIndex: (index: string | number) => SnapPoint;
   defaultSnap: SnapPoint;
-  autoSnap: SnapPoint;
+  // autoSnap: SnapPoint;
   minSnap: SnapPoint;
   minSnapExceptClose: SnapPoint;
   maxSnap: SnapPoint;
   originalMap: Record<string | number, number>;
   processedMap: Record<string | number, number>;
+  isScroll: boolean;
 };
 
 export function useSnapPoint<T extends HTMLElement>({
-  containerRect,
+  containerRef,
   contentRef,
+  headerRef,
+  footerRef,
   config: {
     snaps = [],
     defaultSnap = "auto",
@@ -33,49 +37,66 @@ export function useSnapPoint<T extends HTMLElement>({
   onMount,
   onChange,
 }: {
-  containerRect: DOMRect | null;
+  containerRef: React.RefObject<T>;
   contentRef: React.RefObject<T>;
+  headerRef: React.RefObject<T>;
+  footerRef: React.RefObject<T>;
   config: SnapConfig;
   onMount?: (snapPoints: NonNullable<ReturnType<typeof useSnapPoint>>) => void;
   onChange?: (snapPoints: NonNullable<ReturnType<typeof useSnapPoint>>) => void;
 }): null | Snap {
-  const mount = React.useRef(false);
+  const mount = React.useRef<null | Record<string, number>>(null);
+  const containerRect = useRect(containerRef);
+  useRect(contentRef);
+  useRect(headerRef);
+  useRect(footerRef);
 
   const snapPoints = React.useMemo(() => {
     if (!containerRect || !contentRef.current) return null;
 
     const containerHeight = containerRect.height;
-    const scrollHeight = contentRef.current.scrollHeight;
+    const contentTotalHeight =
+      contentRef.current.scrollHeight +
+      (headerRef?.current?.offsetHeight ?? 0) +
+      (footerRef?.current?.offsetHeight ?? 0);
 
-    const originalMap: Record<string | number, number> = {};
+    const originalMap: Record<string, number> = {};
+
+    // create original map
 
     snaps.forEach((value, key) => {
       if (value <= 1) originalMap[key] = -value * containerHeight;
       else originalMap[key] = -value;
     });
-    if (useCloseSnap || useCloseSnap === 0) {
-      if (useCloseSnap === true) {
-        originalMap["close"] = 0;
-      } else {
-        originalMap["close"] = -useCloseSnap;
-      }
+    if (useCloseSnap === true) {
+      originalMap["close"] = 0;
     }
-    if (useAutoSnap) {
-      originalMap["auto"] = -scrollHeight;
+    if (typeof useCloseSnap === "number") {
+      originalMap["close"] = -useCloseSnap;
+    }
+    if (useAutoSnap === true) {
+      originalMap["auto"] = -contentTotalHeight;
     }
 
+    // pick processed keys that are in range
+
     let processedKeys = Object.keys(originalMap);
-    if (autoSnapAsMax) {
+    if (autoSnapAsMax === true) {
       processedKeys = processedKeys.filter((key) => {
         const value = originalMap[key];
-        return value >= -scrollHeight;
+        return value >= -contentTotalHeight;
       });
     }
     processedKeys = processedKeys.filter(
       (key) => originalMap[key] >= -containerHeight,
     );
+    if (useCloseSnap !== undefined) {
+      processedKeys = processedKeys.filter(
+        (key) => key === "close" || originalMap[key] < originalMap["close"],
+      );
+    }
 
-    const processedMap = processedKeys.reduce<Record<string | number, number>>(
+    const processedMap = processedKeys.reduce<Record<string, number>>(
       (prev, curr) => {
         prev[curr] = originalMap[curr];
         return prev;
@@ -93,7 +114,6 @@ export function useSnapPoint<T extends HTMLElement>({
           index,
         };
       }
-
       return null;
     }
 
@@ -128,7 +148,7 @@ export function useSnapPoint<T extends HTMLElement>({
       }
     })();
 
-    const autoSnap: SnapPoint = getNearestByIndex("auto");
+    // const autoSnap: SnapPoint = getNearestByIndex("auto");
     const minSnap: SnapPoint = getNearestByCoord(Math.max(...processedValues));
     const maxSnap: SnapPoint = getNearestByCoord(Math.min(...processedValues));
     const minSnapExceptClose: SnapPoint = (() => {
@@ -140,25 +160,37 @@ export function useSnapPoint<T extends HTMLElement>({
       return minSnap;
     })();
 
+    const isScroll =
+      originalMap["auto"] !== undefined
+        ? maxSnap.value > originalMap["auto"]
+        : false;
+
     const result = {
       getByIndex,
       getNearestByCoord,
       getNearestByIndex,
       defaultSnap: _defaultSnap,
-      autoSnap,
+      // autoSnap,
       minSnap,
       minSnapExceptClose,
       maxSnap,
       originalMap,
       processedMap,
+      isScroll,
     };
 
     if (!mount.current) {
-      mount.current = true;
       if (onMount) onMount(result);
     } else {
-      if (onChange) onChange(result);
+      if (
+        onChange &&
+        Object.entries(processedMap).toString() !==
+          Object.entries(mount.current).toString()
+      ) {
+        onChange(result);
+      }
     }
+    mount.current = processedMap;
 
     return result;
   }, [

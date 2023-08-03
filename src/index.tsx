@@ -2,6 +2,9 @@
 
 import React from "react";
 import {
+  DraggableProps,
+  Point,
+  ValueAnimationTransition,
   animate,
   motion,
   useDragControls,
@@ -10,7 +13,6 @@ import {
   useTransform,
   useVelocity,
 } from "framer-motion";
-import { useRect } from "./hooks/useRect";
 import { Snap, SnapPoint, useSnapPoint } from "./hooks/useSnapPoint";
 
 export interface SnapConfig {
@@ -50,31 +52,129 @@ export interface SnapConfig {
   onSnap?: (snap: SnapPoint) => void;
 }
 
-export interface SlickBottomSheetProps extends SnapConfig {
+interface MotionConfig {
+  /**
+   * Framer transition options when animation is triggered via drag
+   */
+  dragTransition?: Omit<
+    NonNullable<DraggableProps["dragTransition"]>,
+    "modifyTarget"
+  >;
+  dragElastic?: number;
+  /**
+   * Framer transition options when animation is triggered programmatically
+   */
+  animationTransition?: ValueAnimationTransition<number>;
+}
+
+export interface SlickBottomSheetProps extends SnapConfig, MotionConfig {
   isOpen: boolean;
-  onClose: () => void;
+  onCloseStart?: () => void;
+  onCloseEnd?: () => void;
+  onOpenStart?: () => void;
   className?: string;
   children?: React.ReactNode;
+  /**
+   * Header to be rendered at the top of the sheet
+   * @type {React.ReactNode}
+   */
+  header?: React.ReactNode;
+  /**
+   * Footer to be rendered at the bottom of the sheet
+   * @type {React.ReactNode}
+   */
+  footer?: React.ReactNode;
+  /**
+   * Backdrop to be rendered behind the sheet
+   * @type {React.ReactNode}
+   */
+  backdrop?: React.ReactNode;
+  /**
+   * Whether should backdrop block or passthrough pointer events
+   * @type {boolean}
+   * @default true
+   */
+  backdropBlock?: boolean;
+  /**
+   * Backdrop container class name
+   * @type {boolean | React.ReactNode}
+   */
+  backdropClassName?: string;
+  /**
+   * Whether to close when backdrop is tapped
+   * @type {boolean}
+   * @default true
+   */
+  closeOnBackdropTap?: boolean;
 }
 
-interface InnerSlickBottomSheetProps extends SnapConfig {
-  className?: string;
-  onClose: () => void;
-  children?: React.ReactNode;
+export interface SlickBottomSheetControl {
+  snapTo: (
+    index: number | "auto" | "close" | "default",
+    options?: {
+      animation?: boolean;
+      nearest?: boolean;
+    },
+  ) => void;
 }
 
-export const SlickBottomSheet = React.forwardRef(
-  (props: SlickBottomSheetProps, ref) => {
-    const [ready, setReady] = React.useState(false);
-    React.useEffect(() => {
-      setReady(true);
-    }, []);
+interface InnerSlickBottomSheetProps
+  extends Omit<SlickBottomSheetProps, "isOpen"> {}
 
-    if (!ready || !props.isOpen) return null;
+export const SlickBottomSheet = React.forwardRef<
+  SlickBottomSheetControl,
+  SlickBottomSheetProps
+>(
+  (
+    {
+      isOpen,
+      onOpenStart,
+      onCloseEnd,
+      closeOnBackdropTap = true,
+      backdropBlock = true,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    const [mounted, setMounted] = React.useState(false);
+    const timerRef = React.useRef<ReturnType<typeof requestAnimationFrame>>();
+    const isInitialOpenRef = React.useRef<boolean>(isOpen);
 
-    const { children, ...rest } = props;
+    React.useLayoutEffect(() => {
+      if (isOpen) {
+        if (timerRef.current) cancelAnimationFrame(timerRef.current);
+        setMounted(true);
+        if (mounted && ref && "current" in ref) ref?.current?.snapTo("default");
+        return () => {
+          isInitialOpenRef.current = false;
+        };
+      }
+    }, [isOpen, mounted, ref]);
+
+    const handleOpenStart = React.useCallback(async () => {
+      await onOpenStart?.();
+      if (timerRef.current) cancelAnimationFrame(timerRef.current);
+    }, [onOpenStart]);
+
+    const handleCloseEnd = React.useCallback(async () => {
+      await onCloseEnd?.();
+      timerRef.current = requestAnimationFrame(() => {
+        setMounted(false);
+      });
+    }, [onCloseEnd]);
+
+    if (!mounted) return null;
+
     return (
-      <InnerSlickBottomSheet ref={ref} {...rest}>
+      <InnerSlickBottomSheet
+        onOpenStart={handleOpenStart}
+        onCloseEnd={handleCloseEnd}
+        ref={ref}
+        backdropBlock={backdropBlock}
+        closeOnBackdropTap={closeOnBackdropTap}
+        {...props}
+      >
         {children}
       </InnerSlickBottomSheet>
     );
@@ -82,269 +182,343 @@ export const SlickBottomSheet = React.forwardRef(
 );
 SlickBottomSheet.displayName = "SlickBottomSheet";
 
-const InnerSlickBottomSheet = React.forwardRef(
-  (props: InnerSlickBottomSheetProps, ref) => {
-    const dragControls = useDragControls();
-    const y = useMotionValue(0);
-    const yVelocity = useVelocity(y);
-    const wrapperHeight = useTransform(y, (v) => Math.abs(v));
+const InnerSlickBottomSheet = React.forwardRef<
+  SlickBottomSheetControl,
+  InnerSlickBottomSheetProps
+>((props: InnerSlickBottomSheetProps, ref) => {
+  const dragControls = useDragControls();
+  const y = useMotionValue(0);
+  const yVelocity = useVelocity(y);
+  const wrapperHeight = useTransform(y, (v) => Math.abs(v));
 
-    const [containerRect, containerRef] = useRect<HTMLDivElement>();
-    const scrollRef = React.useRef<HTMLDivElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLDivElement>(null);
+  const headerRef = React.useRef<HTMLDivElement>(null);
+  const footerRef = React.useRef<HTMLDivElement>(null);
 
-    const controller = React.useRef<{
-      currentSnap: null | SnapPoint;
-      prevCurrentSnap: null | SnapPoint;
-      minMax: "min" | "max" | null;
-      setSnap: (
-        data: Snap,
-        target: string | number | SnapPoint,
-      ) => {
-        move: (animation?: boolean) => void;
+  const controller = React.useRef<{
+    currentSnap: null | SnapPoint;
+    minMax: "min" | "max" | null;
+    snapTo: (
+      data: Snap,
+      target: string | number | SnapPoint,
+    ) => {
+      move: (animation?: boolean) => void;
+    };
+    handleMinMax: (to: "min" | "max" | null) => void;
+  }>({
+    currentSnap: null,
+    minMax: null,
+    snapTo(data: Snap, target: string | number | SnapPoint) {
+      const snap = data.getNearestByIndex(
+        typeof target === "string" || typeof target === "number"
+          ? target
+          : target.index,
+      );
+      this.currentSnap = snap;
+
+      props.onSnap?.(snap);
+
+      if (snap.index === "close") {
+        props.onCloseStart?.();
+        if (props.backdropBlock && containerRef.current) {
+          containerRef.current.style.pointerEvents = "none";
+        }
+      } else {
+        if (props.backdropBlock && containerRef.current) {
+          containerRef.current.style.removeProperty("pointer-events");
+        }
+      }
+
+      return {
+        move: (animation = true) => {
+          animate(y, snap.value, {
+            ...props.animationTransition,
+            duration: animation ? props.animationTransition?.duration : 0,
+          });
+        },
       };
-    }>({
-      currentSnap: null,
-      prevCurrentSnap: null,
-      minMax: null,
-      setSnap(data: Snap, target: string | number | SnapPoint) {
-        const snap = data.getNearestByIndex(
-          typeof target === "string" || typeof target === "number"
-            ? target
-            : target.index,
-        );
-        this.prevCurrentSnap = this.currentSnap
-          ? { ...this.currentSnap }
-          : null;
-        this.currentSnap = snap;
+    },
+    handleMinMax(to: "min" | "max" | null) {
+      this.minMax = to;
+    },
+  });
 
-        props.onSnap?.(snap);
-        return {
-          move: (animation = true) => {
-            animate(y, snap.value, {
-              duration: animation ? undefined : 0,
-            });
-          },
-        };
+  useMotionValueEvent(yVelocity, "change", () => {
+    if (!snapPoints) return;
+
+    const position = y.get();
+
+    const closePosition = snapPoints.getByIndex("close")?.value;
+    if (closePosition !== undefined && position >= closePosition) {
+      props.onCloseEnd?.();
+      return;
+    }
+
+    if (position - snapPoints.maxSnap.value <= 30) {
+      controller.current.handleMinMax("max");
+    } else if (position - snapPoints.minSnap.value > -30) {
+      controller.current.handleMinMax("min");
+    } else {
+      controller.current.handleMinMax(null);
+    }
+  });
+
+  const snapPoints = useSnapPoint({
+    containerRef,
+    contentRef: contentRef,
+    headerRef,
+    footerRef,
+    config: {
+      snaps: props.snaps,
+      defaultSnap: props.defaultSnap,
+      useAutoSnap: props.useAutoSnap,
+      autoSnapAsMax: props.autoSnapAsMax,
+      useCloseSnap: props.useCloseSnap,
+    },
+    onChange: (data) => {
+      if (!controller.current.currentSnap) {
+        return;
+      }
+      controller.current
+        .snapTo(data, controller.current.currentSnap)
+        .move(false);
+    },
+    onMount: async (data) => {
+      const { defaultSnap } = data;
+      await props.onOpenStart?.();
+      controller.current.snapTo(data, defaultSnap).move();
+    },
+  });
+
+  React.useImperativeHandle<unknown, SlickBottomSheetControl>(
+    ref,
+    () => ({
+      snapTo: (index, options) => {
+        const { animation = true, nearest = false } = options || {};
+        if (!snapPoints) return;
+        const snap =
+          index === "default"
+            ? snapPoints.defaultSnap
+            : snapPoints[nearest ? "getNearestByIndex" : "getByIndex"](index);
+        if (snap) {
+          controller.current.snapTo(snapPoints, snap).move(animation);
+        }
       },
-    });
+    }),
+    [snapPoints],
+  );
 
-    useMotionValueEvent(yVelocity, "change", () => {
-      if (!snapPoints) return;
+  const modifyTarget = React.useCallback(
+    (t: number) => {
+      if (!snapPoints) return t;
+      const snap = snapPoints.getNearestByCoord(t);
+      controller.current.snapTo(snapPoints, snap);
+      return snap.value;
+    },
+    [controller, snapPoints],
+  );
 
-      const velocity = yVelocity.get();
-      const position = y.get();
+  const enableContentScroll = React.useRef(false);
+  React.useEffect(() => {
+    const elem = contentRef.current!;
+    const preventScrolling = (e: Event) => {
+      if (!enableContentScroll.current) e.preventDefault();
+    };
+    elem.addEventListener("scroll", preventScrolling);
+    elem.addEventListener("touchmove", preventScrolling);
+    return () => {
+      elem.removeEventListener("scroll", preventScrolling);
+      elem.removeEventListener("touchmove", preventScrolling);
+    };
+  }, [contentRef]);
 
-      const closePosition = snapPoints.getByIndex("close")?.value;
-      if (
-        closePosition !== undefined &&
-        position === closePosition &&
-        velocity === 0
-      ) {
-        props.onClose();
+  const clientYRef = React.useRef<number | null>(null);
+
+  const onPointerDown = React.useCallback<React.PointerEventHandler>(
+    (e) => {
+      if (contentRef.current) {
+        enableContentScroll.current = false;
+      }
+      clientYRef.current = e.clientY;
+
+      if (!snapPoints?.isScroll) {
+        dragControls.start(e);
         return;
       }
 
-      if (isDraggingRef.current) return;
-
-      if (position - snapPoints.maxSnap.value < 30) {
-        controller.current.minMax = "max";
-      } else if (position - snapPoints.minSnap.value > -30) {
-        controller.current.minMax = "min";
-      } else {
-        controller.current.minMax = null;
+      if (controller.current.minMax !== "max") {
+        dragControls.start(e);
       }
-    });
+    },
+    [dragControls, snapPoints],
+  );
 
-    const snapPoints = useSnapPoint({
-      containerRect,
-      contentRef: scrollRef,
-      config: {
-        snaps: props.snaps,
-        defaultSnap: props.defaultSnap,
-        useAutoSnap: props.useAutoSnap,
-        autoSnapAsMax: props.autoSnapAsMax,
-        useCloseSnap: props.useCloseSnap,
-      },
-      onChange: (data) => {
+  const onPointerMove = React.useCallback<React.PointerEventHandler>(
+    (e) => {
+      if (!snapPoints?.isScroll) {
+        return;
+      }
+
+      const elementControlIteratorResult = dragControls.componentControls
+        .values()
+        .next();
+      if (elementControlIteratorResult.done) return;
+      const elementControl = elementControlIteratorResult.value;
+
+      if (!clientYRef.current) return;
+
+      // max or not
+      if (controller.current.minMax === "max") {
+        // if direction is down and content scroll is at top
         if (
-          !controller.current.currentSnap ||
-          !controller.current.prevCurrentSnap
+          clientYRef.current <= e.clientY &&
+          scrollRef.current?.scrollTop === 0
         ) {
-          return;
+          if (!elementControl.panSession) {
+            dragControls.start(e);
+          }
+        } else {
+          enableContentScroll.current = true;
         }
-        controller.current
-          .setSnap(data, controller.current.currentSnap)
-          .move(false);
-      },
-      onMount: (data) => {
-        const { defaultSnap } = data;
-        controller.current.setSnap(data, defaultSnap).move();
-      },
-    });
+      } else {
+        enableContentScroll.current = false;
+      }
 
-    React.useImperativeHandle(
-      ref,
-      () => ({
-        snapTo: (
-          index: number | "auto" | "close",
-          options?: {
-            animation?: boolean;
-            nearest?: boolean;
-          },
-        ) => {
-          const { animation = true, nearest = false } = options || {};
-          if (!snapPoints) return;
-          const snap =
-            snapPoints[nearest ? "getNearestByIndex" : "getByIndex"](index);
-          if (snap) {
-            controller.current.setSnap(snapPoints, snap).move(animation);
+      if (!elementControl.isDragging) {
+        clientYRef.current = e.clientY;
+      }
+    },
+    [dragControls, snapPoints],
+  );
+
+  const opacity = useTransform(
+    y,
+    [
+      0,
+      snapPoints?.processedMap["close"] !== undefined
+        ? snapPoints.minSnapExceptClose.value
+        : 0,
+    ],
+    [0, 0.999],
+  );
+
+  const backdropTapRef = React.useRef<null | Point>(null);
+
+  return (
+    <>
+      <motion.div
+        data-sbs-backdrop
+        onTapStart={(_, info) => (backdropTapRef.current = info.point)}
+        onTap={(_, info) => {
+          if (backdropTapRef) {
+            if (
+              props.closeOnBackdropTap &&
+              snapPoints &&
+              Math.abs(info.point.x - backdropTapRef.current!.x) < 10 &&
+              Math.abs(info.point.y - backdropTapRef.current!.y) < 10
+            ) {
+              controller.current.snapTo(snapPoints, "close").move();
+            }
           }
-        },
-      }),
-      [snapPoints],
-    );
-
-    const modifyTarget = React.useCallback(
-      (t: number) => {
-        if (!snapPoints) return t;
-        const snap = snapPoints.getNearestByCoord(t);
-        controller.current.setSnap(snapPoints, snap);
-        return snap.value;
-      },
-      [controller, snapPoints],
-    );
-
-    const enableScrollArea = React.useRef(false);
-    const isDraggingRef = React.useRef(false);
-    const dragStatusRef = React.useRef<null | number>(null);
-    const dragDirectionRef = React.useRef<"up" | "down" | null>(null);
-    React.useEffect(() => {
-      const elem = scrollRef.current!;
-      const preventScrolling = (e: Event) => {
-        if (!enableScrollArea.current) e.preventDefault();
-      };
-      elem.addEventListener("scroll", preventScrolling);
-      elem.addEventListener("touchmove", preventScrolling);
-      return () => {
-        elem.removeEventListener("scroll", preventScrolling);
-        elem.removeEventListener("touchmove", preventScrolling);
-      };
-    }, [scrollRef]);
-
-    return (
-      <>
-        <div
-          style={{
-            position: "absolute",
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-            visibility: "hidden",
-          }}
-          ref={containerRef}
-        ></div>
+          backdropTapRef.current = null;
+        }}
+        onPointerDownCapture={onPointerDown}
+        onPointerMoveCapture={onPointerMove}
+        style={{
+          position: "absolute",
+          width: "100%",
+          height: "100%",
+          userSelect: "none",
+          touchAction: "pan-x",
+          pointerEvents: "none",
+          opacity,
+        }}
+        className={props.backdropClassName}
+        ref={containerRef}
+      >
+        {props.backdrop}
+      </motion.div>
+      <motion.div
+        data-sbs-container
+        onPointerDownCapture={onPointerDown}
+        onPointerMoveCapture={onPointerMove}
+        tabIndex={-1}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            if (snapPoints) {
+              controller.current.snapTo(snapPoints, "close").move();
+            }
+          }
+        }}
+        dragListener={false}
+        dragControls={dragControls}
+        drag="y"
+        dragTransition={{
+          power: 0.3,
+          timeConstant: 75,
+          restDelta: 0.1,
+          ...props.dragTransition,
+          modifyTarget,
+        }}
+        style={{
+          y,
+          width: "100%",
+          position: "absolute",
+          top: "100%",
+          touchAction: "pan-x",
+          opacity,
+          userSelect: "none",
+        }}
+        dragElastic={{
+          top: props.dragElastic ?? 0.5,
+          bottom: 0,
+        }}
+        dragConstraints={
+          snapPoints
+            ? {
+                top: snapPoints.maxSnap.value,
+                bottom: snapPoints.minSnap.value,
+              }
+            : undefined
+        }
+        className={props.className}
+      >
         <motion.div
-          id="sbs-container-area"
-          dragControls={dragControls}
-          drag={"y"}
-          transition={{ ease: "easeOut", duration: 2 }}
-          dragTransition={{
-            power: 0.3,
-            timeConstant: 200,
-            modifyTarget,
-          }}
+          data-sbs-wrapper
           style={{
-            y,
-            width: "100%",
-            position: "absolute",
-            top: "100%",
+            display: "flex",
+            flexDirection: "column",
+            height: wrapperHeight,
           }}
-          dragConstraints={
-            snapPoints
-              ? {
-                  top: snapPoints.maxSnap.value,
-                  bottom: snapPoints.minSnap.value,
-                }
-              : undefined
-          }
         >
-          <motion.div
-            onPointerUpCapture={() => {
-              isDraggingRef.current = false;
-            }}
-            onPointerDownCapture={(e) => {
-              isDraggingRef.current = true;
-              const yPos = e.clientY;
-              dragStatusRef.current = yPos;
-              dragDirectionRef.current = null;
-
-              // firefox / safari fix
-              // without this, scrollarea down -> up -> up requires additional swipe to close
-              const isScrollAtTop =
-                scrollRef.current &&
-                controller.current.minMax === "max" &&
-                scrollRef.current.scrollTop <= 0;
-              if (isScrollAtTop) {
-                enableScrollArea.current = false;
-              }
-
-              if (enableScrollArea.current) {
-                e.stopPropagation();
-              }
-            }}
-            onPointerMoveCapture={(e) => {
-              // if not dragging return
-              if (dragStatusRef.current === null) return;
-
-              // update yPos
-              const yPos = e.clientY;
-              const dragDirection =
-                yPos - dragStatusRef.current >= 0 ? "down" : "up";
-              dragStatusRef.current = yPos;
-              dragDirectionRef.current = dragDirection;
-
-              if (!scrollRef.current) return;
-
-              const isFullyExpanded = controller.current.minMax === "max";
-              const hasScroll =
-                scrollRef.current.scrollHeight > scrollRef.current.clientHeight;
-              const isScrollAtTop = scrollRef.current.scrollTop <= 0;
-
-              // if not expanded or there is no scroll we don't need to handle
-              if (!isFullyExpanded || !hasScroll) {
-                enableScrollArea.current = false;
-                return;
-              }
-              // if open but scroll not at top, enable scroll area
-              if (!isScrollAtTop) {
-                enableScrollArea.current = true;
-                return;
-              }
-
-              // if scroll at top
-
-              // if drag direction is down, disable scroll area
-              if (dragDirectionRef.current === "down") {
-                enableScrollArea.current = false;
-                return;
-              }
-              // if drag direction is up, enable scroll area
-              enableScrollArea.current = true;
-            }}
-            id="sbs-scroll-area"
+          {props.header && (
+            <div data-sbs-header ref={headerRef}>
+              {props.header}
+            </div>
+          )}
+          <div
+            data-sbs-scroll
             ref={scrollRef}
             style={{
-              height: wrapperHeight,
               overflow: "auto",
               overscrollBehavior: "none",
             }}
-            className={props.className}
           >
-            {props.children}
-          </motion.div>
+            <div data-sbs-content ref={contentRef}>
+              {props.children}
+            </div>
+          </div>
+          {props.footer && (
+            <div data-sbs-footer ref={footerRef}>
+              {props.footer}
+            </div>
+          )}
         </motion.div>
-      </>
-    );
-  },
-);
+      </motion.div>
+    </>
+  );
+});
 InnerSlickBottomSheet.displayName = "InnerSlickBottomSheet";

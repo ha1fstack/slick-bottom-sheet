@@ -4,13 +4,15 @@ const getRect = (element: HTMLElement) => {
   return element.getBoundingClientRect();
 };
 
-export function useRect<T extends HTMLElement>(params?: {
-  onResize?: (rect: DOMRect) => void;
-  onMount?: (rect: DOMRect) => void;
-}): [DOMRect | null, React.MutableRefObject<T | null>] {
+export function useRect<T extends HTMLElement>(
+  ref: React.RefObject<HTMLElement>,
+  params?: {
+    onResize?: (rect: DOMRect) => void;
+    onMount?: (rect: DOMRect) => void;
+  },
+): DOMRect | null {
   const { onResize, onMount } = params || {};
 
-  const ref = React.useRef<T | null>(null);
   const [rect, setRect] = React.useState(
     ref.current ? getRect(ref.current) : null,
   );
@@ -48,7 +50,7 @@ export function useRect<T extends HTMLElement>(params?: {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, [handleResize]);
+  }, [handleResize, ref]);
 
-  return [rect, ref];
+  return rect;
 }

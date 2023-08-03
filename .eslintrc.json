@@ -100,13 +100,6 @@
     },
     "import/resolver": {
       "typescript": {}
-      // "alias": {
-      //   "extensions": [".js", ".jsx", ".ts", ".tsx"]
-      //   // "map": [
-      //   //   ["^jotai$", "./src/index.ts"],
-      //   //   ["jotai", "./src"]
-      //   // ]
-      // }
     }
   },
   "overrides": [
