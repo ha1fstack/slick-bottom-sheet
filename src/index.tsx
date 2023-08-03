@@ -428,14 +428,25 @@ const InnerSlickBottomSheet = React.forwardRef<
     [0, 1],
   );
 
+  const backdropTapRef = React.useRef<null | Point>(null);
+
   return (
     <>
       <motion.div
         data-sbs-backdrop
-        onTap={() => {
-          if (props.closeOnBackdropTap && snapPoints) {
-            controller.current.snapTo(snapPoints, "close").move();
+        onTapStart={(_, info) => (backdropTapRef.current = info.point)}
+        onTap={(_, info) => {
+          if (backdropTapRef) {
+            if (
+              props.closeOnBackdropTap &&
+              snapPoints &&
+              Math.abs(info.point.x - backdropTapRef.current!.x) < 10 &&
+              Math.abs(info.point.y - backdropTapRef.current!.y) < 10
+            ) {
+              controller.current.snapTo(snapPoints, "close").move();
+            }
           }
+          backdropTapRef.current = null;
         }}
         onPointerDownCapture={onPointerDown}
         onPointerMoveCapture={onPointerMove}
