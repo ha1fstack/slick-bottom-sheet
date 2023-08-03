@@ -24,29 +24,40 @@ export interface SnapConfig {
    */
   defaultSnap?: number | "auto";
   /**
-   * Whether to use auto height of content as snap
+   * Whether to create auto height of content as snap.
+   * If the content height is taller than container height, container height will be used instead.
+   * If total number of snaps excluding close snap is 0, auto snap will be forcefully created.
    * @type {boolean}
    * @default true
    */
   useAutoSnap?: boolean;
   /**
-   * List of snaps. If <= 1, it will be calculated as a percentage of the container height.
+   * Whether to create close snap that triggers close behavior when snapped to.
+   * @type {boolean}
+   * @default true
+   */
+  useCloseSnap?: boolean | number;
+  /**
+   * List of snaps.
+   * Positive: distance from bottom.
+   * <= 1: container height percentage from bottom.
+   * Negative: distance from top.
    * @type {number[]}
    * @default []
    */
   snaps?: number[];
   /**
-   * Whether to ignore snaps taller than content height.
+   * Whether to ignore snaps taller than auto snap.
    * @type {boolean}
    * @default true
    */
   autoSnapAsMax?: boolean;
   /**
-   * Whether to use close snap that triggers close behavior when snapped to.
+   * Whether to ignore auto snap if auto snap is taller than any of provided snaps.
    * @type {boolean}
    * @default true
    */
-  useCloseSnap?: boolean | number;
+  maxSnapAsMax?: boolean;
   /**
    * On snap change callback
    */
@@ -276,6 +287,7 @@ const InnerSlickBottomSheet = React.forwardRef<
       defaultSnap: props.defaultSnap,
       useAutoSnap: props.useAutoSnap,
       autoSnapAsMax: props.autoSnapAsMax,
+      maxSnapAsMax: props.maxSnapAsMax,
       useCloseSnap: props.useCloseSnap,
     },
     onChange: (data) => {
@@ -335,10 +347,12 @@ const InnerSlickBottomSheet = React.forwardRef<
     };
   }, [contentRef]);
 
+  const pointerDownRef = React.useRef<boolean>(false);
   const clientYRef = React.useRef<number | null>(null);
 
   const onPointerDown = React.useCallback<React.PointerEventHandler>(
     (e) => {
+      pointerDownRef.current = true;
       if (contentRef.current) {
         enableContentScroll.current = false;
       }
@@ -358,7 +372,7 @@ const InnerSlickBottomSheet = React.forwardRef<
 
   const onPointerMove = React.useCallback<React.PointerEventHandler>(
     (e) => {
-      if (!snapPoints?.isScroll) {
+      if (!snapPoints?.isScroll || !pointerDownRef.current) {
         return;
       }
 
@@ -396,43 +410,39 @@ const InnerSlickBottomSheet = React.forwardRef<
     [dragControls, snapPoints],
   );
 
+  const onPointerUp = React.useCallback(() => {
+    pointerDownRef.current = false;
+  }, []);
+
   const opacity = useTransform(
     y,
     [
       0,
       snapPoints?.processedMap["close"] !== undefined
-        ? snapPoints.minSnapExceptClose.value
+        ? Math.max(
+            snapPoints.minSnapExceptClose.value,
+            -snapPoints.containerHeight * 0.25,
+          )
         : 0,
     ],
     [0, 1],
   );
 
-  const backdropTapRef = React.useRef<null | Point>(null);
-
   return (
     <>
       <motion.div
         data-sbs-backdrop
-        onTapStart={(_, info) => (backdropTapRef.current = info.point)}
-        onTap={(_, info) => {
-          if (backdropTapRef) {
-            if (
-              props.closeOnBackdropTap &&
-              snapPoints &&
-              Math.abs(info.point.x - backdropTapRef.current!.x) < 10 &&
-              Math.abs(info.point.y - backdropTapRef.current!.y) < 10
-            ) {
-              controller.current.snapTo(snapPoints, "close").move();
-            }
+        onTap={() => {
+          if (props.closeOnBackdropTap && snapPoints) {
+            controller.current.snapTo(snapPoints, "close").move();
           }
-          backdropTapRef.current = null;
         }}
         onPointerDownCapture={onPointerDown}
         onPointerMoveCapture={onPointerMove}
+        onPointerUpCapture={onPointerUp}
         style={{
           position: "absolute",
-          width: "100%",
-          height: "100%",
+          inset: 0,
           userSelect: "none",
           touchAction: "pan-x",
           pointerEvents: "none",
@@ -447,6 +457,7 @@ const InnerSlickBottomSheet = React.forwardRef<
         data-sbs-container
         onPointerDownCapture={onPointerDown}
         onPointerMoveCapture={onPointerMove}
+        onPointerUpCapture={onPointerUp}
         tabIndex={-1}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
@@ -456,6 +467,7 @@ const InnerSlickBottomSheet = React.forwardRef<
             }
           }
         }}
+        onDragEnd={onPointerUp}
         dragListener={false}
         dragControls={dragControls}
         drag="y"
@@ -506,6 +518,7 @@ const InnerSlickBottomSheet = React.forwardRef<
             data-sbs-scroll
             ref={scrollRef}
             style={{
+              flexGrow: 1,
               overflow: "auto",
               overscrollBehavior: "none",
             }}

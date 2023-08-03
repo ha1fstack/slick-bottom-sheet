@@ -20,6 +20,9 @@ export type Snap = {
   originalMap: Record<string | number, number>;
   processedMap: Record<string | number, number>;
   isScroll: boolean;
+  // etc
+  containerHeight: number;
+  contentTotalHeight: number;
 };
 
 export function useSnapPoint<T extends HTMLElement>({
@@ -31,8 +34,9 @@ export function useSnapPoint<T extends HTMLElement>({
     snaps = [],
     defaultSnap = "auto",
     useAutoSnap = true,
-    autoSnapAsMax = true,
     useCloseSnap = true,
+    autoSnapAsMax = true,
+    maxSnapAsMax = true,
   },
   onMount,
   onChange,
@@ -65,22 +69,29 @@ export function useSnapPoint<T extends HTMLElement>({
     // create original map
 
     snaps.forEach((value, key) => {
-      if (value <= 1) originalMap[key] = -value * containerHeight;
+      if (value < 0) originalMap[key] = -value - containerHeight;
+      else if (value <= 1) originalMap[key] = -value * containerHeight;
       else originalMap[key] = -value;
     });
+    const _snapValues = Object.values(originalMap);
     if (useCloseSnap === true) {
       originalMap["close"] = 0;
     }
     if (typeof useCloseSnap === "number") {
       originalMap["close"] = -useCloseSnap;
     }
-    if (useAutoSnap === true) {
-      originalMap["auto"] = -contentTotalHeight;
-    }
+    originalMap["auto"] = Math.max(-contentTotalHeight, -containerHeight);
 
     // pick processed keys that are in range
 
     let processedKeys = Object.keys(originalMap);
+    if (
+      _snapValues.length > 0 &&
+      (useAutoSnap !== true ||
+        (maxSnapAsMax && Math.min(..._snapValues) > originalMap["auto"]))
+    ) {
+      processedKeys = processedKeys.filter((key) => key !== "auto");
+    }
     if (autoSnapAsMax === true) {
       processedKeys = processedKeys.filter((key) => {
         const value = originalMap[key];
@@ -177,6 +188,9 @@ export function useSnapPoint<T extends HTMLElement>({
       originalMap,
       processedMap,
       isScroll,
+      // etc
+      containerHeight,
+      contentTotalHeight,
     };
 
     if (!mount.current) {
@@ -200,6 +214,7 @@ export function useSnapPoint<T extends HTMLElement>({
     defaultSnap,
     footerRef,
     headerRef,
+    maxSnapAsMax,
     onChange,
     onMount,
     snaps,
