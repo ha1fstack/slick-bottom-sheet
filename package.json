@@ -32,9 +32,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/plrs9816/slick-bottom-sheet.git"
+    "url": "https://github.com/ha1fstack/slick-bottom-sheet.git"
   },
-  "homepage": "https://github.com/plrs9816/slick-bottom-sheet",
+  "homepage": "https://github.com/ha1fstack/slick-bottom-sheet",
   "author": "ha1fstack",
   "files": [
     "dist",
