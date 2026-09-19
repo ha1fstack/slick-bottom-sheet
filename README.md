@@ -13,7 +13,7 @@ This package requires framer-motion as a peer dependency.
 ```bash
 npm install slick-bottom-sheet
 yarn add slick-bottom-sheet
-pnpm install slick-bottom-sheet
+pnpm add slick-bottom-sheet
 ```
 
 ## Demo
